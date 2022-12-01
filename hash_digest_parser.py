@@ -1,27 +1,32 @@
-from hashlib import sha256
-import logging
+from argparse import ArgumentParser
 from pathlib import Path
 
 import regex
 
-_HASH_LINE_RE = regex.compile(r'SHA256\((?<filename>.+)\)=\s(?<sha256_digest>[0-9a-f]{64})')
+HASH_LINE_RE = regex.compile(r'SHA256\((?<filename>.+)\)=\s(?<sha256_digest>[0-9a-f]{64})')
 
 
 def read_all_lines(filename):
     with open(filename) as fp:
-        return [line[:-1] for line in fp]
-
-def get_sha256_digest(p: Path):
-    with p.open(mode='rb') as fp:
-        m = sha256()
-        m.update(fp.read())
-        return m.hexdigest()
+        return [line.rstrip() for line in fp]
 
 def parse_line(line):
-    m = _HASH_LINE_RE.search(line)
+    m = HASH_LINE_RE.search(line)
     if m:
         return (m['filename'], m['sha256_digest'])
 
-def get_sha256_dict():
-    parsed_lines = (parse_line(line) for line in read_file())
-    return {filename:sha256_digest for filename, sha256_digest in parsed_lines}
+def main():
+    parser = ArgumentParser()
+    parser.add_argument('hash_digest_file')
+    args = parser.parse_args()
+    hash_digest_file = args.hash_digest_file
+    lines = read_all_lines(args.hash_digest_file)
+    parsed_lines = [parse_line(line) for line in lines]
+
+    output_file = Path(hash_digest_file).with_name('hash_info.txt')
+    with output_file.open(mode='w') as fp:
+        for filename, hexdigest in parsed_lines:
+            print(f'{hexdigest} {filename}', file=fp)
+
+if __name__ == '__main__':
+    main()
